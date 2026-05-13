@@ -33,19 +33,11 @@ int configurator_init(FILE *f, size_t struct_size, config_handler_t handler, con
 void configurator_clean(void);
 
 /**
- * @brief Donne l'accès en écriture au pointeur renvoyé.
- * /!\ Attention à bien appeler release_read après /!\
- * /!\ Je conseille de ne pas sauvegarder le pointeur dans une variable /!\
+ * @brief Renvoie la configuration sauvegardée en mémoire
  * 
- * @return const void* Pointeur de la configuration (faites pas n'imp !)
+ * @return const void* 
  */
-const void *configurator_acquire_read(void);
-
-/**
- * @brief Va de paire avec acquire_read. Il faut l'appeler pour rendre la ressource.
- * 
- */
-void configurator_release_read(void);
+const void *configurator_get_config(void);
 
 /**
  * @brief Met à jour toute la configuration en une seule fois.

@@ -37,18 +37,11 @@ int my_config_handler(void *conf_app, const char *key, const char *value) {
 }
 
 static void read_config(void) {
-    // Je ne recommande pas de stocker le pointeur renvoyé
-    // Mais si vous le faites, assigner le à NULL pour éviter des conneries plus tard
-    ConfApp_t *myConfig = (ConfApp_t *)configurator_acquire_read();
-
+    ConfApp_t *myConfig = (ConfApp_t *)configurator_get_config();
     printf(
         "CONFIGURATION :\n\tipv4 : %s\n\tport : %d\n\tserver_name : %s\n",
         myConfig->ipv4, myConfig->port, myConfig->server_name
     );
-
-    // Important, il faut rendre la lecture
-    myConfig = NULL; // Comme ça on est sur de toucher à rien
-    configurator_release_read();
 } 
 
 int main(void) {
