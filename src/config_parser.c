@@ -1,6 +1,5 @@
 #include <string.h>
 #include <ctype.h>
-#include <stdio.h>
 
 #include "config_parser.h"
 
@@ -38,25 +37,16 @@ static char *whitespace_trimmer(char *str) {
     return str;
 }
 
-int parse_config_file(const char *filename, config_handler_t handler, void *user_data) {
+int parse_config_file(FILE *file, config_handler_t handler, void *user_data) {
     // On vient lire ligne par ligne le fichier de configuration
     // Si on tombe sur une ligne vide ou un ligne commençant par #, on ignore
     // Si on tombe sur une ligne du style "clé=valeur" il faut la traiter
     // On récupère la clé, la valeur et on appelle le handler avec en paramètre
-
     // Attention il faut supprimer les espaces dans les lignes lues
 
-    // 1. Il faut ouvrir le fichier
-    // bah oui on va pas deviner les lignes...
-
-
     int count = 0;
-    FILE *file = fopen(filename, "r"); // en mode lecture
-    if (file == NULL)
-        return -1; // on n'a pas réussi à ouvrir le fichier
 
-    // Maintenant on lit en boucle jusqu'à la fin
-
+    // On lit en boucle jusqu'à la fin
     char read[MAX_BUFFER];
     while(fgets(read, MAX_BUFFER, file)) {
 
@@ -94,7 +84,5 @@ int parse_config_file(const char *filename, config_handler_t handler, void *user
         }
     }
 
-    // on ferme le fichier et on sort
-    fclose(file);
     return count;
 }

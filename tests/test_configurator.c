@@ -47,8 +47,12 @@ TestSuite(configurator_suite, .init = setup, .fini = clean);
 Test(configurator_suite, init_et_lecture) {
     TestConfig_t def = {80, "default"};
 
+    // Ouverture du fichier
+    FILE *f = fopen("dummy_test.cfg", "r");
+    cr_assert_null(f, "Erreur d'ouverture du fichier de test");
+
     // Test de l'initialisation
-    int params_lus = configurator_init("dummy_test.cfg", sizeof(TestConfig_t), test_handler, &def);
+    int params_lus = configurator_init(f, sizeof(TestConfig_t), test_handler, &def);
     cr_assert_eq(params_lus, 2, "Le parser aurait dû trouver 2 paramètres valides. Paramètres trouvés : %d", params_lus);
 
     // Test de la lecture
@@ -70,7 +74,7 @@ Test(configurator_suite, valeurs_par_defaut) {
     TestConfig_t def = {404, "not_found"};
 
     // On tente de lire un fichier qui n'existe pas
-    int res = configurator_init("fichier_inexistant.cfg", sizeof(TestConfig_t), test_handler, &def);
+    int res = configurator_init(NULL, sizeof(TestConfig_t), test_handler, &def);
     cr_assert_eq(res, -1, "Init devrait retourner -1 si le fichier n'existe pas. Lu : %d", res);
 
     const TestConfig_t *cfg = (const TestConfig_t *)configurator_acquire_read();

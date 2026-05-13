@@ -18,13 +18,13 @@
 /**
  * @brief Permet d'initialiser le gestionnaire de configuration
  * 
- * @param filename Nom du fichier de configuration
+ * @param f Fichier de configuration
  * @param struct_size Taille de la structure de configuration du projet de l'utilisateur (sizeof(AppConfig))
  * @param handler Fonction de traduction
  * @param default_values Structure par défaut, si jamais une lecture de ligne rate c'est bien de la fournir
  * @return int 0 si succès, -1 si erreur
  */
-int configurator_init(const char *filename, size_t struct_size, config_handler_t handler, const void *default_values);
+int configurator_init(FILE *f, size_t struct_size, config_handler_t handler, const void *default_values);
 
 /**
  * @brief Fonction à appeler en fin de programme pour bien nettoyer le configurateur

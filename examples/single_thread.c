@@ -53,13 +53,22 @@ static void read_config(void) {
 
 int main(void) {
 
+    // On ouvre le fichier
+    FILE *f = fopen("config.cfg", "r");
+    if (!f) {
+        printf("Erreur ouverture fichier\n");
+        return -1;
+    }
+
     // On initialise le configurateur
     configurator_init(
-        "config.cfg",
+        f,
         sizeof(ConfApp_t),
         my_config_handler,
         NULL
     );
+
+    if (f) fclose(f);
 
     // On lit la configuration
     read_config();  // fonction à moi, pas de la lib
@@ -69,7 +78,7 @@ int main(void) {
     read_config();
 
     // On le remet à son ancienne valeur
-    configurator_set_value("port", "10");
+    configurator_set_value("port", "8000");
     read_config();
 
     // Fin du programme

@@ -12,6 +12,7 @@
 #ifndef CONFIG_PARSER_H
 #define CONFIG_PARSER_H
 
+#include <stdio.h>
 
 /**
  * @brief Type de fonction de callback attendue
@@ -28,11 +29,11 @@ typedef int (*config_handler_t) (void *user_data, const char* key, const char *v
 /**
  * @brief Fonction de parsing. Elle va lire un fichier et appeler handler à chaque paire clé=valeur
  * 
- * @param filename Fichier de configuration à lrie
+ * @param file pointeur vers le fichier
  * @param handler Fonction de callback propre à l'utilisateur
  * @param user_data Pointeur void * qui sera passé au handler, faites-en ce que vous en voulez
  * @return int Nombre de paramètres lus
  */
-int parse_config_file(const char *filename, config_handler_t handler, void *user_data);
+int parse_config_file(FILE *file, config_handler_t handler, void *user_data);
 
 #endif
