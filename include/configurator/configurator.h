@@ -12,19 +12,16 @@
 #ifndef CONFIGURATOR_H
 #define CONFIGURATOR_H
 
+#include <stdio.h>
 #include <stddef.h>
-#include "config_parser.h"
 
 /**
  * @brief Permet d'initialiser le gestionnaire de configuration
  * 
  * @param f Fichier de configuration
- * @param struct_size Taille de la structure de configuration du projet de l'utilisateur (sizeof(AppConfig))
- * @param handler Fonction de traduction
- * @param default_values Structure par défaut, si jamais une lecture de ligne rate c'est bien de la fournir
  * @return int 0 si succès, -1 si erreur
  */
-int configurator_init(FILE *f, size_t struct_size, config_handler_t handler, const void *default_values);
+int configurator_init(FILE *f);
 
 /**
  * @brief Fonction à appeler en fin de programme pour bien nettoyer le configurateur
@@ -32,29 +29,14 @@ int configurator_init(FILE *f, size_t struct_size, config_handler_t handler, con
  */
 void configurator_clean(void);
 
-/**
- * @brief Renvoie la configuration sauvegardée en mémoire
- * 
- * @return const void* 
- */
-const void *configurator_get_config(void);
+const char *configurator_get_string(const char *key, const char *default_value);
 
-/**
- * @brief Met à jour toute la configuration en une seule fois.
- * 
- * @param new_config Nouvelle configuration
- */
-void configurator_update_all_config(const void *new_config);
+int configurator_set_string(const char *key, const char *value);
 
-/**
- * @brief Met à jour une valeur du configurateur.
- * La fonction se base sur la fonction user donnée à l'initialisation.
- * 
- * @param key Clé à mettre à jour
- * @param value Valeur à mettre à jour
- * @return int -1 si erreur, 0 sinon
- */
-int configurator_set_value(const char *key, const char *value);
+int configurator_get_int(const char *key, int default_value);
 
+int configurator_set_int(const char *key, int value);
+
+int configurator_save_config(FILE *f);
 
 #endif
