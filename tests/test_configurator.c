@@ -4,26 +4,6 @@
 
 #include <configurator/configurator.h>
 
-// Moule de configuration pour nos tests
-typedef struct {
-    int port;
-    char hostname[64];
-} TestConfig_t;
-
-// Le handler pour nos tests
-int test_handler(void *user_data, const char *key, const char *value) {
-    TestConfig_t *cfg = (TestConfig_t *)user_data;
-    if (strcmp(key, "port") == 0) {
-        cfg->port = atoi(value);
-        return 0;
-    }
-    else if (strcmp(key, "hostname") == 0) {
-        strncpy(cfg->hostname, value, 63);
-        return 0;
-    }
-    return -1;
-}
-
 void setup(void) {
     FILE *f = fopen("dummy_test.cfg", "w");
     fprintf(f, "# Fichier de test\n");
@@ -45,46 +25,109 @@ TestSuite(configurator_suite, .init = setup, .fini = clean);
  * 
  */
 Test(configurator_suite, init_et_lecture) {
-    TestConfig_t def = {80, "default"};
 
     // Ouverture du fichier
     FILE *f = fopen("dummy_test.cfg", "r");
-    cr_assert_null(f, "Erreur d'ouverture du fichier de test");
+    cr_assert_not_null(f, "Erreur d'ouverture du fichier de test");
 
     // Test de l'initialisation
-    int params_lus = configurator_init(f, sizeof(TestConfig_t), test_handler, &def);
+    int params_lus = configurator_init(f);
     cr_assert_eq(params_lus, 2, "Le parser aurait dû trouver 2 paramètres valides. Paramètres trouvés : %d", params_lus);
+    fclose(f);
 
     // Test de la lecture
-    const TestConfig_t *cfg = (const TestConfig_t *)configurator_acquire_read();
-    cr_assert_not_null(cfg, "Le pointeur de configuration ne devrait pas être NULL");
+    int port = configurator_get_int("port", 0);
+    const char *hostname = configurator_get_string("hostname", NULL);
 
-    cr_assert_eq(cfg->port, 8080, "Le port lu devrait être 8080. Lu : %d", cfg->port);
-    cr_assert_str_eq(cfg->hostname, "localhost", "Le hostname lu devrait être localhost. Lu : [%s]", cfg->hostname);
+    cr_assert_eq(port, 8080, "Le port lu devrait être 8080. Lu : %d", port);
+    cr_assert_str_eq(hostname, "localhost", "Le hostname lu devrait être localhost. Lu : [%s]", hostname);
 
-    // Libération
-    configurator_release_read();
 }
 
 /**
- * @brief Test les valeurs par défaut
+ * @brief Initialisation avec fichier NULL mais ça doit rester fonctionnel
  * 
  */
-Test(configurator_suite, valeurs_par_defaut) {
-    TestConfig_t def = {404, "not_found"};
+Test(configurator_suite, init_null) {
+    int res = configurator_init(NULL);
+    cr_assert_eq(res, -1, "L'init n'a pas retourné -1. Lu : [%d]", res);
 
-    // On tente de lire un fichier qui n'existe pas
-    int res = configurator_init(NULL, sizeof(TestConfig_t), test_handler, &def);
-    cr_assert_eq(res, -1, "Init devrait retourner -1 si le fichier n'existe pas. Lu : %d", res);
+    // on doit quand même pouvoir utiliser le dictionnaire de la lib
+    res = configurator_set_int("port", 5000);
+    cr_assert_eq(res, 0, "Le setter a retourné une erreur. Lu : [%d]", res);
 
-    const TestConfig_t *cfg = (const TestConfig_t *)configurator_acquire_read();
-    cr_assert_not_null(cfg, "Le pointeur de configuration ne devrait pas être NULL");
+    int port = configurator_get_int("port", 0);
+    cr_assert_eq(port, 5000, "Le getter n'a pas renvoyé la bonne valeur. Lu : [%d]", port);
 
-    // Même si la lecture du fichier a planté, on doit quand même avoir nos paramètres par défaut
-    cr_assert_eq(cfg->port, 404, "Le port par défaut devrait être appliqué à 404. Ici : %d", cfg->port);
-    cr_assert_str_eq(cfg->hostname, "not_found", "Le hostname par défaut devrait être appliqué à not_found. Ici : [%s]", cfg->hostname);
+}
 
-    configurator_release_read();
+/**
+ * @brief Initialiser des données et nettoyer le configurator, normalement on ne doit pouvoir plus lire 
+ * 
+ */
+Test(configurator_suite, clean) {
+    // Ouverture du fichier
+    FILE *f = fopen("dummy_test.cfg", "r");
+    cr_assert_not_null(f, "Erreur d'ouverture du fichier de test");
+
+    // Test de l'initialisation
+    int params_lus = configurator_init(f);
+    cr_assert_eq(params_lus, 2, "Le parser aurait dû trouver 2 paramètres valides. Paramètres trouvés : %d", params_lus);
+    fclose(f);
+
+    configurator_clean();
+
+    int port = configurator_get_int("port", 0);
+    const char *hostname = configurator_get_string("hostname", "default");
+
+    cr_assert_eq(port, 0, "Le port lu devrait être 0. Lu : %d", port);
+    cr_assert_str_eq(hostname, "default", "Le hostname lu devrait être default. Lu : [%s]", hostname);
+}
+
+/**
+ * @brief Tester le configurator sans l'init (sans charger de fichier)
+ * 
+ */
+Test(configurator_suite, no_init) {
+    // si on init pas, on aura que les valeurs par défaut
+
+    int port = configurator_get_int("port", 0);
+    const char *hostname = configurator_get_string("hostname", "default");
+
+    cr_assert_eq(port, 0, "Le port renvoyé n'est pas à la valeur par défaut. Lu : [%d]", port);
+    cr_assert_str_eq(hostname, "default", "Le hostname renvoyé n'est pas à la valeur par défaut. Lu : [%s]", hostname);
+}
+
+/**
+ * @brief Avec des clefs inconnues 
+ * 
+ */
+Test(configurator_suite, unknown_key) {
+    // Ouverture du fichier
+    FILE *f = fopen("dummy_test.cfg", "r");
+    cr_assert_not_null(f, "Erreur d'ouverture du fichier de test");
+
+    // Test de l'initialisation
+    int params_lus = configurator_init(f);
+    cr_assert_eq(params_lus, 2, "Le parser aurait dû trouver 2 paramètres valides. Paramètres trouvés : %d", params_lus);
+    fclose(f);
+
+    // demander une clef qui n'existe pas dans le fichier
+    int res = configurator_get_int("cle_bizarre", 123);
+    cr_assert_eq(res, 123, "La clef inexistante n'a pas retourné la valeur attendue. Lu : [%d]", res);
+
+    // demander une clef null
+    const char *str = configurator_get_string(NULL, "default");
+    cr_assert_str_eq(str, "default", "La clef NULL aurait du renvoyé la valeur par défaut. Lu : [%s]", str);
+
+    // faire mumuse avec les setters
+    res = configurator_set_int(NULL, 4);
+    cr_assert_eq(res, -1, "Le setter aurait du retourner une erreur");
+    res = configurator_set_string(NULL, "coucou");
+    cr_assert_eq(res, -1, "Le setter aurait du retourner une erreur");
+    res = configurator_set_string("cle", NULL);
+    cr_assert_eq(res, -1, "Le setter aurait du retourner une erreur");
+    
 }
 
 /**
@@ -92,29 +135,63 @@ Test(configurator_suite, valeurs_par_defaut) {
  * 
  */
 Test(configurator_suite, modif_en_direct) {
-    TestConfig_t def = {80, "default"};
-    configurator_init("dummy_test.cfg", sizeof(TestConfig_t), test_handler, &def);
+   // Ouverture du fichier
+    FILE *f = fopen("dummy_test.cfg", "r");
+    cr_assert_not_null(f, "Erreur d'ouverture du fichier de test");
 
-    // Test de la fonction set_value
-    int res = configurator_set_value("port", "9000");
-    cr_assert_eq(res, 0, "La mise à jour aurait du réussir.");
+    // Test de l'initialisation
+    int params_lus = configurator_init(f);
+    cr_assert_eq(params_lus, 2, "Le parser aurait dû trouver 2 paramètres valides. Paramètres trouvés : %d", params_lus);
+    fclose(f);
+    
+    int res = configurator_set_int("port", 234);
+    cr_assert_eq(res, 0, "Erreur lors de set_int");
+    int port = configurator_get_int("port", 0);
+    cr_assert_eq(port, 234, "Erreur lors de set_int, mauvaise valeur. Lu : [%d]", port);
 
-    // On vérifie que la valeur a bien changé en mémoire
-    const TestConfig_t *cfg = (const TestConfig_t *)configurator_acquire_read();
-    cr_assert_eq(cfg->port, 9000, "Le port en mémoire aurait du passer à 9000. Lu : %d", cfg->port);
+    res = configurator_set_string("hostname", "test");
+    cr_assert_eq(res, 0, "Erreur lors de set_string");
+    const char *str = configurator_get_string("hostname", "default");
+    cr_assert_str_eq(str, "test", "Erreur lors de set_string, mauvaise valeur. Lu : [%s]", str);
 
-    configurator_release_read();
 }
 
 /**
- * @brief Modification d'une clé inconnue
+ * @brief Sauvegarde du fichier de configuration
  * 
  */
-Test(configurator_suite, modif_cle_inconnue) {
-    TestConfig_t def = {80, "default"};
-    configurator_init("dummy_test.cfg", sizeof(TestConfig_t), test_handler, &def);
-    
-    // Injection d'une clé au pif
-    int res = configurator_set_value("cle_au_pif", "856321");
-    cr_assert_eq(res, -1, "Le handler de clé devrait rejeter la clé car elle est inconnue");
+Test(configurator_suite, save) {
+    // Ouverture du fichier
+    FILE *f = fopen("dummy_test.cfg", "r");
+    cr_assert_not_null(f, "Erreur d'ouverture du fichier de test");
+
+    // Test de l'initialisation
+    int params_lus = configurator_init(f);
+    cr_assert_eq(params_lus, 2, "Le parser aurait dû trouver 2 paramètres valides. Paramètres trouvés : %d", params_lus);
+    fclose(f);
+
+    configurator_set_int("port", 9999);
+    configurator_set_string("nouveau_param", "test");
+
+    FILE *f_out = fopen("test_out.cfg", "w");
+    cr_assert_not_null(f_out, "Erreur création fichier de sortie");
+
+    int res = configurator_save_config(f_out);
+    cr_assert_eq(res, 0, "Echec de la sauvegarde");
+    fclose(f_out);
+
+    configurator_clean();
+
+    FILE *f_check = fopen("test_out.cfg", "r");
+    cr_assert_not_null(f_check, "Erreur création fichier de sortie");
+    configurator_init(f_check);
+    fclose(f_check);
+
+    int saved_port = configurator_get_int("port", 0);
+    const char *saved_str = configurator_get_string("nouveau_param", "introuvable");
+
+    cr_assert_eq(saved_port, 9999, "Le port lu depuis le fichier de sauvegarde n'est pas le bon. Lu : [%d]", saved_port);
+    cr_assert_str_eq(saved_str, "test", "Le paramètre lu n'est pas à la valeur sauvegardé. Lu : [%s]", saved_str);
+
+    remove("test_out.cfg");
 }

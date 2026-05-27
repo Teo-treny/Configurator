@@ -3,48 +3,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-// On définit notre structure de configuration
-typedef struct {
-    char ipv4[64];
-    int port;
-    char server_name[256];
-} ConfApp_t;
-
-// On définit notre fonction gérant les paires clé=valeur
-int my_config_handler(void *conf_app, const char *key, const char *value) {
-    // On vérifie bien les paramètres
-    if (!conf_app || !key || !value)
-        return -1;
-
-    // On cast le pointeur void *
-    ConfApp_t *myConfApp = (ConfApp_t *)conf_app;
-
-    // On vérifie la clé pour attribuer la valeur
-    if (strcmp(key, "ipv4") == 0) {
-        strncpy(myConfApp->ipv4, value, 63);
-    }
-    else if (strcmp(key, "port") == 0) {
-        myConfApp->port = atoi(value);
-    }
-    else if (strcmp(key, "server_name") == 0) {
-        strncpy(myConfApp->server_name, value, 255);
-    }
-    else {
-        return -1;  // Clé=valeur inconnue
-    }
-
-    return 0;
-}
-
-static void read_config(void) {
-    ConfApp_t *myConfig = (ConfApp_t *)configurator_get_config();
-    printf(
-        "CONFIGURATION :\n\tipv4 : %s\n\tport : %d\n\tserver_name : %s\n",
-        myConfig->ipv4, myConfig->port, myConfig->server_name
-    );
-} 
-
 int main(void) {
+    printf("Debut du test\n");
 
     // On ouvre le fichier
     FILE *f = fopen("config.cfg", "r");
@@ -53,28 +13,46 @@ int main(void) {
         return -1;
     }
 
-    // On initialise le configurateur
-    configurator_init(
-        f,
-        sizeof(ConfApp_t),
-        my_config_handler,
-        NULL
+    // Initialisation du configurator
+    if (configurator_init(f) == -1) {
+        printf("configurator_init error\n");
+        fclose(f);
+        return -1;
+    }
+
+    // A partir de là, on peut fermer le fichier car la configuration est chargée en mémoire
+    fclose(f);
+
+    // Lecture des param
+    int cfg_port = configurator_get_int("port", 5000);
+    const char *cfg_ipv4 = configurator_get_string("ipv4", "127.0.0.1");
+    const char *cfg_server_name = configurator_get_string("server_name", "default_string");
+
+    printf(
+        "Configuration chargée :\n\t- ipv4 : %s\n\t- port : %d\n\t- server_name : %s\n\n",
+        cfg_ipv4, cfg_port, cfg_server_name
     );
 
-    if (f) fclose(f);
+    configurator_set_int("port", 2000);
+    configurator_set_string("ipv4", "192.168.5.3");
 
-    // On lit la configuration
-    read_config();  // fonction à moi, pas de la lib
 
-    // On met à jour un champ pour tester
-    configurator_set_value("port", "15");
-    read_config();
+    // On ouvre un fichier en mode écriture
+    f = fopen("config_clone.cfg", "w");
+    if (!f) {
+        printf("Erreur ouverture fichier\n");
+        return -1;
+    }
 
-    // On le remet à son ancienne valeur
-    configurator_set_value("port", "8000");
-    read_config();
+    if (configurator_save_config(f) != 0) {
+        printf("configurator_save_config error\n");
+        fclose(f);
+        return -1;
+    }
 
-    // Fin du programme
+    fclose(f);
+
     configurator_clean();
+
     return 0;
 }

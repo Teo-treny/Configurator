@@ -1,14 +1,19 @@
 # Configurator
-Une librairie C, thread-safe, pour lire, stocker et modifier des fichiers de configurations à la volée.
+Une librairie C pensée légère et dynamique sur base de dictionnaire pour lire, stocker, modifier et sauvegarder des configurations.
 
 ## Points clés
--**Agnostique** : La librairie s'adapte à n'importe quelle structure de projet.
+-**Agnostique** : La librairie s'adapte à n'importe quelle structure de projet. Vous demandez une clef, la librairie vous la donne.
+-**Zéro dépendance** : La librairie ne dépend que des librairies standard C (libc). Elle s'intègre dans n'importe quel projet.
 -**Haute performance** : Très peu d'accès mémoire complexe, offrant un accès et une édition rapide des champs.
--**Thread-safe** : Utilisation d'un verrou *read-write* (``pthread_rwlock_t``). Autorise une infinité de lecture concourante mais bloque tout en cas d'écriture.
--**Tolérance** : Nettoyage automatique des espaces / tabulations, ignorent les lignes commentées ou vides.
+
+## Metrique de couplage
+L'un des objectifs de cette lib est de minimiser l'impact architectural sur le code client. La librairie respecte des métriques de couplage strictes :
+- **Couplage efférent (Ce) : 0**, la librairie ne dépend d'aucun module externe
+- **Couplage afférent (Ca) : élevé**, conçue pour être appelée massivement par l'application cliente
+- **Indice d'instabilité (I) : ~0**, la librairie est très stable  
 
 ## Guide d'utilisation (quick start)
-L'utilisation se fait en trois étapes : définir sa structure de configuration, créer un traducteur (fonction ``handler``) et initialiser le configurateur.
+Grâce à son modèle en dictionnaire, l'utilisation est immédiate : on charge, on lit, on modifie.
 
 ### Exemple
 ```cfg
@@ -20,59 +25,35 @@ server_name = Mon super serveur
 
 ```c
 #include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
 #include <configurator/configurator.h>
 
-// 1. Création de la structure de configuration
-typedef struct {
-    char ipv4[64];
-    int port;
-    char server_name[256];
-} AppConfig_t;
-
-// 2. Définiton de la fonction de traduction
-int my_config_handler(void *user_data, const char *key, const char *value) {
-    AppConfig_t *cfg = (AppConfig_t *)user_data;
-
-    if (strcmp(key, "ipv4") == 0) {
-        strncpy(cfg->ipv4, value, 63);
-        return 0;
-    }
-    else if (strcmp(key, "port") == 0) {
-        cfg->port = atoi(value);
-        return 0;
-    }
-    else if (strcmp(key, "server_name") == 0) {
-        strncpy(cfg->server_name, value, 255);
-        return 0;
-    }
-    return -1;
-}
-
 int main(void) {
-    // Initialisation de la librairie
-    configurator_init(
-        "config.cfg",           // Fichier de configuration
-        sizeof(AppConfig_t),    // Taille de la structure de données
-        my_config_handler,      // Pointeur vers la fonction de traduction
-        NULL                    // Valeurs par défaut de la configuration (OPTIONNEL)
-    );
+    // 1. Initialisation de la librairie au démarrage
+    FILE *f = fopen("config.cfg", "r");
+    if (f) {
+        configurator_init(f);
+        fclose(f); // Le fichier peut être fermé immédiatement
+    }
 
-    // Exemple de lecture de paramètres
-    const AppConfig_t *my_cfg = (const AppConfig_t *)configuration_acquire_read();
+    // 2. LECTURE (Avec valeurs par défaut sécurisées)
+    int port = configurator_get_int("port", 8080);
+    const char *ipv4 = configurator_get_string("ipv4", "127.0.0.1");
+    const char *server = configurator_get_string("server_name", "Serveur par defaut");
+    
+    printf("Serveur démarré : %s (%s:%d)\n", server, ipv4, port);
+    
+    // 3. MODIFICATION À LA VOLÉE
+    configurator_set_int("port", 9050);
+    configurator_set_string("nouvelle_cle", "Ajout dynamique !");
 
-    // Traitement des paramètres
-    // ...
+    // 4. SAUVEGARDE SUR LE DISQUE
+    FILE *f_save = fopen("config_backup.cfg", "w");
+    if (f_save) {
+        configurator_save_config(f_save);
+        fclose(f_save);
+    }
 
-    // OBLIGATOIRE : on rend le verrou
-    configurator_release_read();
-
-    // Exemple de modification à la volée
-    // Modifie la valeur du port, mais il faut redémarrer votre serveur tout de même
-    configurator_set_value("port", "9050");
-
-    // Nettoyage en fin de programme
+    // 5. Nettoyage en fin de programme
     configurator_clean();
     return 0;
 }
@@ -103,36 +84,32 @@ make clean
 
 ### ``configurator_init``
 ```c
-int configurator_init(const char *filename, size_t struct_size, config_handler_t handler, const void *default_values);
+int configurator_init(FILE *f);
 ```
-Alloue la mémoire, applique d'éventuelles valeurs par défaut et parse le fichier de configuration donnée. A appeler une fois au démarrage.
+Initialise le dictionnaire en mémoire et parse le fichier fourni. Peut prendre `NULL` pour initialiser un dictionnaire vide. Retourne le nombre de paramètres lus ou `-1` en cas d'erreur.
 
-### ``configurator_acquire_read``
+### ``configurator_get_string / configurator_get_int``
 ```c
-const void *configurator_acquire_read(void);
+const char *configurator_get_string(const char *key, const char *default_value);
+int configurator_get_int(const char *key, int default_value);
 ```
-Pose un verrou de lecture et retourne un pointeur en lecture seule vers la configuration. Bloque les écritures mais permet des lectures simultanées. **Doit toujours être suivi d'un appel ``configurator_release_read``**.
+Cherche une clé dans le dictionnaire. Si la clé est introuvable ou si une erreur survient, la fonction retourne silencieusement la valeur par défaut spécifiée en second paramètre.
 
-### ``configurator_release_read``
+### ``configurator_set_string / configuration_set_int``
 ```c
-void configurator_release_read(void);
+int configurator_set_string(const char *key, const char *value);
+int configurator_set_int(const char *key, int value);
 ```
-Lève le verrou de lecture posé par la fonction ``configurator_acquire_read``.
+Ajoute une nouvelle paire ou met à jour une clé existante dans le dictionnaire en mémoire. Retourne `0` en cas de succès, `-1` en cas d'erreur.
 
-### ``configurator_set_value``
+### ``configurator_save_config``
 ```c
-int configurator_set_value(const char *key, const char *value);
+int configurator_save_config(FILE *f);
 ```
-Prend un verrou d'écriture exclusif et utilise le `handler` pour modifier une valeur spécifique en **uniquement en mémoire**. 
-
-### ``configurator_update_all_config``
-```c
-void configurator_update_all_config(const void *new_config);
-```
-Prend un verrou d'écriture exclusif et met à jour toute la structure de configuration **uniquement en mémoire**.
+Parcourt le dictionnaire en mémoire et écrit son contenu sous forme `clé = valeur` dans le flux de fichier fourni (qui doit être ouvert en mode écriture `w`).
 
 ### ``configurator_clean``
 ```c
 void configurator_clean(void);
 ```
-A appeler en fin de programme, elle nettoie correctement et ferme la librairie.
+Libère l'intégralité de la mémoire allouée pour le dictionnaire. À appeler impérativement avant la fin du programme pour éviter les fuites de mémoire.

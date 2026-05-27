@@ -14,26 +14,21 @@
 
 #include <stdio.h>
 
+#define CONFIGURATOR_MAX_BUFFER 256
+
 /**
- * @brief Type de fonction de callback attendue
- * Cette fonction de callback est appelée à chaque paire "clé=valeur" lue, elle traitera par elle même ces valeurs
- * @param user_data Pointeur vers un void * pour que l'utilisateur puisse passer ce qu'il veut dans son handler. Peut etre laissé à NULL
- * @param key Chaine de caractère contenant la clé de la ligne de configuration
- * @param value Chaine de caractère contenant la valeur associée à la clé de la ligne de configuration
- * @return  0 si succès
- *          -1 si erreur
+ * @brief Type de callback attendue
  * 
  */
-typedef int (*config_handler_t) (void *user_data, const char* key, const char *value);
+typedef int (*config_handler_t)(const char *key, const char *value);
 
 /**
  * @brief Fonction de parsing. Elle va lire un fichier et appeler handler à chaque paire clé=valeur
  * 
  * @param file pointeur vers le fichier
- * @param handler Fonction de callback propre à l'utilisateur
- * @param user_data Pointeur void * qui sera passé au handler, faites-en ce que vous en voulez
+ * @param handler Fonction de callback appelée à chaque paire lue
  * @return int Nombre de paramètres lus
  */
-int parse_config_file(FILE *file, config_handler_t handler, void *user_data);
+int parse_config_file(FILE *file, config_handler_t handler);
 
 #endif

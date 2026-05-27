@@ -1,63 +1,126 @@
 #include <string.h>
 #include <stdlib.h>
-#include <stdio.h>
 
 #include "configurator.h"
+#include "config_parser.h"
 
-static void *global_config = NULL;              // Pointeur générique vers la configuration
-static config_handler_t global_handler = NULL;  // fonction de traduction
-static size_t config_size = 0;                  // Taille de la configuration
+// Structure de données interne
+typedef struct config_entry_t {
+    char *key;
+    char *value;
+    struct config_entry_t *next;
+} config_entry_t;
 
-int configurator_init(
-    FILE *f, 
-    size_t struct_size, 
-    config_handler_t handler, 
-    const void *default_values
-) {
+static config_entry_t *head = NULL; // Tete du dictionnaire
 
-    // on copie la taille de la structure
-    config_size = struct_size;
-    global_handler = handler;
-
-    // allocation de mémoire pour la configuration
-    global_config = malloc(config_size);
-    if (global_config == NULL)
-        return -1;
-
-    // On applique la config par défaut, s'il y en a une
-    if (default_values) {
-        memcpy(global_config, default_values, struct_size);
+static config_entry_t *find_or_create(const char *key) {
+    config_entry_t *curr = head;
+    
+    // find
+    while (curr) {
+        if (strcmp(curr->key, key) == 0)
+            return curr;
+        curr = curr->next;
     }
 
-    // on appelle le parser
-    return parse_config_file(f, handler, global_config);
+    // or create
+    config_entry_t *new = (config_entry_t *)malloc(sizeof(config_entry_t));
+    if (!new) 
+        return NULL;
+
+    // strdup fait une duplication d'une string
+    new->key = strndup(key, CONFIGURATOR_MAX_BUFFER);
+    new->value = NULL;
+    
+    new->next = NULL;
+    
+    if (head == NULL)
+        head = new;
+    else {
+        config_entry_t *tail = head;
+        while (tail->next != NULL)
+            tail = tail->next;
+        tail->next = new;
+    }
+
+    return new;
+}
+
+int configurator_init(FILE *f) {
+    if (!f)
+        return -1;
+
+    return parse_config_file(f, configurator_set_string);
 }
 
 void configurator_clean(void) {
-    if (global_config) {
-        free(global_config);
-        global_config = NULL;
+    config_entry_t *curr = head;
+    while (curr) {
+        config_entry_t *next = curr->next;
+        free(curr->key);
+        if (curr->value) free(curr->value);
+        free(curr);
+        curr = next;
     }
+    head = NULL;
 }
 
-const void *configurator_get_config(void) {
-    return global_config;
+const char *configurator_get_string(const char *key, const char *default_value) {
+    if (!key)
+        return default_value;
+
+    config_entry_t *curr = head;
+
+    while (curr) {
+        if (strcmp(curr->key, key) == 0)
+            return curr->value;
+        curr = curr->next;
+    }
+
+    return default_value;
 }
 
-void configurator_update_all_config(const void *new_config) {
-    if (!new_config || !global_config) 
-        return;
-
-    memcpy(global_config, new_config, config_size);
-}
-
-int configurator_set_value(const char *key, const char *value) {
-    if (!global_config || !global_handler || !key || !value)
+int configurator_set_string(const char *key, const char *value) {
+    if (!key || !value)
         return -1;
 
-    // on appelle tout simplement la fonction user
-    // pour mettre à jour la valeur
-    int result = global_handler(global_config, key, value);
+    config_entry_t *node = find_or_create(key);
+    if (!node) 
+        return -1;
 
-    return result;
+    if (node->value)
+        free(node->value);
+
+    node->value = strndup(value, CONFIGURATOR_MAX_BUFFER);
+
+    return 0;
+}
+
+int configurator_get_int(const char *key, int default_value) {
+    const char *val_str = configurator_get_string(key, NULL);
+    if (val_str)
+        return atoi(val_str);
+    return default_value;
+}
+
+int configurator_set_int(const char *key, int value) {
+    if (!key)
+        return -1;
+
+    char buffer[CONFIGURATOR_MAX_BUFFER];
+    snprintf(buffer, sizeof(buffer), "%d", value);
+    return configurator_set_string(key, buffer);
+}
+
+int configurator_save_config(FILE *f) {
+    if (!f)
+        return -1;
+
+    config_entry_t *curr = head;
+    while (curr) {
+        fprintf(f, "%s = %s\n", curr->key, curr->value ? curr->value : "");
+        curr = curr->next;
+    }
+
+    return 0;
 }
