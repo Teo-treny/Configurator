@@ -3,18 +3,19 @@ Une librairie C pensée légère et dynamique sur base de dictionnaire pour lire
 
 ## Points clés
 -**Agnostique** : La librairie s'adapte à n'importe quelle structure de projet. Vous demandez une clef, la librairie vous la donne.
--**Zéro dépendance** : La librairie ne dépend que des librairies standard C (libc). Elle s'intègre dans n'importe quel projet.
+-**Zéro dépendance** : La librairie ne dépend que des librairies standard C (libc). Elle s'intègre dans n'importe quel projet. Normalement compatible windows et linux.
 -**Haute performance** : Très peu d'accès mémoire complexe, offrant un accès et une édition rapide des champs.
+-**Persistance** : Enregistrez toutes les modifications d'un seul coût
 
 ## Metrique de couplage
 L'un des objectifs de cette lib est de minimiser l'impact architectural sur le code client. La librairie respecte des métriques de couplage strictes :
-- **Couplage efférent (Ce) : 0**, la librairie ne dépend d'aucun module externe
+- **Couplage efférent (Ce) : 0**, la librairie ne dépend d'aucun module externe (hormis les lib standards)
 - **Couplage afférent (Ca) : élevé**, conçue pour être appelée massivement par l'application cliente
-- **Indice d'instabilité (I) : ~0**, la librairie est très stable  
+- **Indice d'instabilité (I) : ~0**, la librairie est très stable
 
 ## Guide d'utilisation (quick start)
 Grâce à son modèle en dictionnaire, l'utilisation est immédiate : on charge, on lit, on modifie.
-Le dictionnaire est persistant : on peut le lire depuis n'importe quel endroit tant qu'il a été initialisé au moins une fois.
+Le dictionnaire est persistant : on peut le lire depuis n'importe quel endroit **tant qu'il a été initialisé au moins une fois**.
 
 ### Exemple
 ```cfg
