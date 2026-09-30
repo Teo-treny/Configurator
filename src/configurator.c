@@ -4,6 +4,31 @@
 #include "configurator.h"
 #include "config_parser.h"
 
+#ifdef _WIN32
+// Réimplémentation strndup pour windows
+char *strndup(const char *s, size_t n) {
+    /*
+    if (s == NULL)
+        return NULL;
+    */
+   
+    size_t len = 0;
+    while (len < n && s[len] != '\0')
+        len++;
+
+    char *new_str = (char *)malloc(len + 1);
+    if (new_str == NULL)
+        return NULL;
+    
+    memcpy(new_str, s, len);
+    new_str[len] = '\0';
+
+    return new_str;
+}
+
+#endif
+
+
 // Structure de données interne
 typedef struct config_entry_t {
     char *key;

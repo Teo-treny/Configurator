@@ -14,6 +14,7 @@ L'un des objectifs de cette lib est de minimiser l'impact architectural sur le c
 
 ## Guide d'utilisation (quick start)
 Grâce à son modèle en dictionnaire, l'utilisation est immédiate : on charge, on lit, on modifie.
+Le dictionnaire est persistant : on peut le lire depuis n'importe quel endroit tant qu'il a été initialisé au moins une fois.
 
 ### Exemple
 ```cfg
