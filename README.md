@@ -60,7 +60,7 @@ int main(void) {
     return 0;
 }
 ```
-
+test
 ## Compilation et installation
 ### Prérequis
 Pour générer une librairie statique (``.a``) ou dynamique (``.so``), il faut :
